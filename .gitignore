@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+
+# Streamlit
+.streamlit/
+
+# Database
+data.sqlite3
+
+# Images (optional)
+img/
+
+# Virtual env
+venv/
+.env/
+
+# OS
+.DS_Store
