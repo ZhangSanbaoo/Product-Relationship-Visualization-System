@@ -6,10 +6,10 @@ __pycache__/
 .streamlit/
 
 # Database
-data.sqlite3
+# data.sqlite3
 
 # Images (optional)
-img/
+# img/
 
 # Virtual env
 venv/

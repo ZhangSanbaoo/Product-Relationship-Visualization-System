@@ -22,12 +22,10 @@ def apply_pending_navigation():
     p = st.session_state.pending
     st.session_state.page = p["page"]
     st.session_state.line_id = p["line_id"]
+    st.session_state.nav_radio = st.session_state.page
 
     if p.get("product") not in (None, ""):
         st.session_state.product = p["product"]
-
-    # 同步 sidebar radio
-    st.session_state["nav_radio"] = st.session_state.page
 
     # 同步产品线下拉显示值
     if st.session_state.page == "产品线" and st.session_state.line_id:
@@ -62,12 +60,18 @@ def main():
 
     # Sidebar
     st.sidebar.title("导航")
-    chosen = st.sidebar.radio(
-        "页面",
-        ["产品线", "产品详情", "后台管理"],
-        index=["产品线", "产品详情", "后台管理"].index(st.session_state.page),
-        key="nav_radio",
-    )
+    pages = ["产品线", "产品详情", "后台管理"]
+
+    # 只要 session_state.page 变了，radio 就会自动显示对应项
+    if "nav_radio" not in st.session_state:
+        st.session_state.nav_radio = st.session_state.page
+
+    chosen = st.sidebar.radio("页面", pages, key="nav_radio")
+
+    # 统一用 chosen 驱动 page
+    if chosen != st.session_state.page:
+        go(chosen, line_id=st.session_state.line_id, product_code=st.session_state.product)
+
 
     # 手动切页：统一走 go()
     if chosen != st.session_state.page:
