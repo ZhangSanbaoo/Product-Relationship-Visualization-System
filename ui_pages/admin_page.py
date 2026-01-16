@@ -4,7 +4,6 @@ import streamlit as st
 from streamlit_agraph import agraph, Config
 
 from core.settings import IMG_DIR
-from core.scroll import go
 from graph.nodes import save_product_image_overwrite
 from graph.build_line import build_line_graph
 

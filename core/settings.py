@@ -19,7 +19,3 @@ GRAPH_THUMB = 96
 # -----------------------
 X_GAP = 260
 Y_GAP = 150
-
-# 主线同格节点“菱形分布”偏移比例（相对于 gap）
-DIAMOND_DX_RATIO = 0.18
-DIAMOND_DY_RATIO = 0.35

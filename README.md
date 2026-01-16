@@ -1,157 +1,224 @@
-# 产品关系可视化管理系统（Product Relationship Visualization System, PRVS）
+# PRVS – Product Relationship Visualization System
 
-一个基于 **Streamlit + SQLite + Python** 的本地部署 Web
-应用，用于对多个产品线中的产品关系进行建模、管理与可视化展示。\
-该系统适用于工程设计阶段的系统架构梳理、产品组合分析、上下游依赖管理以及内部产品资产管理等场景。
+PRVS 是一个基于 **Streamlit + SQLite + Graph Visualization** 的本地部署产品关系可视化与管理系统，用于构建、维护和分析复杂产品体系中的上下游关系、依赖关系及产品线结构。
 
-------------------------------------------------------------------------
+本项目适用于：
+- 企业内部产品架构梳理
+- 系统依赖关系管理
+- 技术产品线规划
+- 架构评审与知识沉淀
 
-## ✨ 主要功能
+---
 
--   📦 **产品库管理**
-    -   统一维护产品基本信息、分类、简介、详细说明与图片
-    -   支持新增、修改、删除产品（自动级联清理关联关系）
--   🧩 **产品线建模**
-    -   定义多个产品线（系统线 / 业务线 / 架构线等）
-    -   为每条产品线配置产品成员及显示顺序
--   🔗 **产品关系管理**
-    -   支持有向 / 无向关系
-    -   支持强连接 / 弱连接
-    -   支持在线路上标注自定义文字（如：RS485、CAN、24V、电源、信号等）
--   🗺️ **关系图可视化**
-    -   产品线视角：左 → 右分层结构展示
-    -   产品详情视角：跨产品线的上下游依赖关系图
-    -   支持节点点击跳转与悬浮提示
--   🛠 **后台管理界面**
-    -   产品管理
-    -   产品线管理（含显示顺序调整）
-    -   关系管理与实时预览
+# PRVS – Product Relationship Visualization System
 
-------------------------------------------------------------------------
+PRVS is a **locally deployed web-based product relationship management and visualization system** built with Streamlit, SQLite, and interactive graph rendering.
 
-## 🧱 技术架构
+It helps teams model, manage, and analyze complex product ecosystems including dependencies, upstream/downstream relationships, and product line structures.
 
--   前端/交互：Streamlit
--   图可视化：streamlit-agraph（基于 vis.js）
--   数据库：SQLite
--   后端逻辑：Python 模块化分层设计
+---
 
-项目结构：
+## ✨ 功能特性 | Features
 
-    core/        # 数据库连接、迁移、全局配置
-    repo/        # 数据访问层（Products / Lines / Relations）
-    graph/       # 图构建逻辑（节点、边、布局）
-    ui_pages/    # Streamlit 页面模块
-    app.py       # 应用入口
+### 中文
 
-------------------------------------------------------------------------
+- 📦 全局产品库管理（增删改查 + 图片支持）
+- 🧩 产品线管理与排序（支持显示顺序调整）
+- 🔗 产品关系管理（有向 / 无向，强 / 弱关系，支持线上文字标注）
+- 🗺 产品线关系图（手动坐标布局，稳定可控）
+- 🔍 产品详情页上下游关系图（跨产品线聚合展示）
+- 🧠 自动数据库迁移
+- 🐳 Docker 容器化部署支持
+- ▶ 一键启动脚本支持（run.sh / run.bat）
 
-## 🚀 运行方式
+### English
 
-### 1. 安装依赖
+- Global product repository management (CRUD + images)
+- Product line management and ordering
+- Relationship management (directed/undirected, strong/weak, edge labels supported)
+- Product line visualization with manual layout control
+- Global upstream/downstream visualization per product
+- Automatic schema migration
+- Docker deployment support
+- One-click startup scripts (run.sh / run.bat)
 
-``` bash
-pip install -r requirements.txt
+---
+
+## 🏗 技术架构 | Architecture
+
+- UI: Streamlit
+- Visualization: streamlit-agraph (vis.js)
+- Database: SQLite
+- Backend: Modular Python architecture
+- Deployment: Local execution / Docker container
+
+---
+
+## 🚀 运行方式 | How to Run
+
+### 方式零：一键启动脚本（推荐给非技术用户）
+
+适用于不熟悉 Python 或 Docker 的用户。
+
+#### Linux / macOS
+
+```bash
+chmod +x run.sh
+./run.sh
 ```
 
-### 2. 启动应用
+#### Windows
 
-``` bash
-streamlit run app.py
+双击运行：
+
+```
+run.bat
+```
+
+或在命令行中：
+
+```cmd
+run.bat
 ```
 
 浏览器访问：
 
-    http://localhost:8501
+```
+http://localhost:8501
+```
 
-------------------------------------------------------------------------
+脚本会自动：
 
-## 🗄 数据说明
+- 创建虚拟环境
+- 安装依赖
+- 启动系统
 
--   默认使用本地 SQLite 数据库：`data.sqlite3`
--   支持自动表结构迁移
--   产品图片存储在 `img/` 目录
+---
 
-> 建议在 GitHub 提交时忽略数据库文件与真实图片数据。
+### 方式一：本地运行（Python）
 
-------------------------------------------------------------------------
+#### 1. 创建虚拟环境
 
-## 📌 适用场景
+```bash
+python -m venv venv
+source venv/bin/activate
+```
 
--   系统架构设计与产品依赖梳理
--   工业控制系统产品组合分析
--   IoT / 嵌入式系统组件关系管理
--   内部产品资产管理与技术文档辅助
+#### 2. 安装依赖
 
-------------------------------------------------------------------------
-
-## 📄 License
-
-MIT License（可根据需要调整）
-
-------------------------------------------------------------------------
-
-# Product Relationship Visualization System (PRVS)
-
-A locally deployed web-based system built with **Streamlit and SQLite**
-for modeling, managing, and visualizing product relationships across
-multiple product lines.
-
-The system is designed to support system architecture analysis, product
-dependency management, and internal product portfolio organization in
-engineering and technical environments.
-
-------------------------------------------------------------------------
-
-## ✨ Features
-
--   📦 **Product Repository Management**
-    -   Maintain product metadata, categories, descriptions, and images
-    -   Full CRUD support with cascading cleanup
--   🧩 **Product Line Modeling**
-    -   Define multiple product lines
-    -   Configure product membership and display order
--   🔗 **Relationship Management**
-    -   Directed and undirected relationships
-    -   Strong and weak connections
-    -   Custom edge labels (protocols, power lines, signals, etc.)
--   🗺️ **Graph Visualization**
-    -   Left-to-right layered product line view
-    -   Global upstream/downstream dependency view
-    -   Interactive nodes with hover tooltips
--   🛠 **Admin Panel**
-    -   Manage products, product lines, and relations
-    -   Real-time preview of relationship graphs
-
-------------------------------------------------------------------------
-
-## 🧱 Architecture
-
--   Frontend: Streamlit
--   Visualization: streamlit-agraph (vis.js)
--   Database: SQLite
--   Backend: Modular Python architecture
-
-------------------------------------------------------------------------
-
-## 🚀 How to Run
-
-``` bash
+```bash
 pip install -r requirements.txt
+```
+
+#### 3. 启动
+
+```bash
 streamlit run app.py
 ```
 
-------------------------------------------------------------------------
+---
 
-## 📌 Use Cases
+### 🐳 方式二：使用 Docker（推荐）
 
--   System architecture planning
--   Industrial control product mapping
--   IoT component dependency analysis
--   Internal product asset management
+#### 构建镜像
 
-------------------------------------------------------------------------
+```bash
+docker build -t prvs .
+```
 
-## 📄 License
+#### 运行容器
 
-MIT License
+```bash
+docker run -p 8501:8501 prvs
+```
+
+浏览器访问：
+
+```
+http://localhost:8501
+```
+
+后台运行：
+
+```bash
+docker run -d -p 8501:8501 --name prvs_app prvs
+```
+
+---
+
+### Option 2: Run with Docker (Recommended)
+
+```bash
+docker build -t prvs .
+docker run -p 8501:8501 prvs
+```
+
+Then open:
+
+```
+http://localhost:8501
+```
+
+---
+
+## 📁 项目结构 | Project Structure
+
+```
+.
+├── app.py
+├── core/
+├── repo/
+├── graph/
+├── ui_pages/
+├── migrations.py
+├── requirements.txt
+├── Dockerfile
+├── run.sh
+├── run.bat
+├── README.md
+└── img/
+```
+
+---
+
+## 🧭 项目定位 | Project Type
+
+- 中文：本地部署的产品关系可视化管理系统
+- English: Locally deployed web-based product relationship visualization system
+
+---
+
+## 🧩 典型应用场景 | Use Cases
+
+- 产品体系建模
+- 系统依赖分析
+- 架构评审
+- 技术规划
+- 内部知识库
+
+---
+
+## 📜 License
+
+MIT License (free to use, modify and commercialize)
+
+---
+
+## 👤 作者 | Author
+
+Developed by: 张三包  
+GitHub Repository: https://github.com/ZhangSanbaoo/Product-Relationship-Visualization-System
+
+---
+
+## 🛣 Roadmap
+
+- [ ] 权限系统 / Authentication & authorization
+- [ ] 导入/导出 JSON
+- [ ] 图自动布局算法
+- [ ] 多用户支持
+- [ ] Web 公网部署模式
+
+---
+
+如果你觉得这个项目对你有帮助，欢迎 Star ⭐ 或 Fork 🚀
