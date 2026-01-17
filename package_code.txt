@@ -1,0 +1,1 @@
+pyinstaller --noconfirm --clean --onedir --name PRVS ^ launcher.py ^ --add-data "app.py;." ^ --add-data "core;core" ^ --add-data "graph;graph" ^ --add-data "repo;repo" ^ --add-data "ui_pages;ui_pages" ^ --add-data "data.sqlite3;." ^ --add-data "img;img" ^ --collect-all streamlit ^ --copy-metadata streamlit ^ --collect-all streamlit_agraph ^ --copy-metadata streamlit_agraph
