@@ -31,6 +31,7 @@ def scroll_to_anchor(anchor_id: str, offset: int = 150) -> None:
 
     offset：顶部留白，避免被标题遮挡。
     """
+    anchor_id = safe_dom_id(anchor_id)
     components.html(
         f"""
         <script>
@@ -122,7 +123,7 @@ def ensure_router_state() -> None:
     ss.setdefault("needs_top", 0)
     ss.setdefault("frame", 0)
 
-    ss.setdefault("admin_module", "产品库（全局）")
+    ss.setdefault("admin_module", "产品库")
     ss.setdefault("admin_line_sub", "该线包含的产品")
     ss.setdefault("admin_selected_line", None)
 

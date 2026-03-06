@@ -20,14 +20,20 @@ def conn() -> sqlite3.Connection:
 
 def q_all(sql: str, params: tuple = ()) -> list[sqlite3.Row]:
     """查询多行。"""
-    with conn() as c:
+    c = conn()
+    try:
         return c.execute(sql, params).fetchall()
+    finally:
+        c.close()
 
 
 def q_one(sql: str, params: tuple = ()) -> Optional[sqlite3.Row]:
     """查询单行，查不到返回 None。"""
-    with conn() as c:
+    c = conn()
+    try:
         return c.execute(sql, params).fetchone()
+    finally:
+        c.close()
 
 
 def exec_sql(sql: str, params: tuple = ()) -> int:
@@ -37,10 +43,13 @@ def exec_sql(sql: str, params: tuple = ()) -> int:
     Returns:
         lastrowid（INSERT 时有意义）
     """
-    with conn() as c:
+    c = conn()
+    try:
         cur = c.execute(sql, params)
         c.commit()
         return cur.lastrowid
+    finally:
+        c.close()
 
 
 def init_db() -> None:
@@ -50,7 +59,8 @@ def init_db() -> None:
     注意：
     - SQL 注释只用 -- 或 /* ... */
     """
-    with conn() as c:
+    c = conn()
+    try:
         c.executescript(
             """
             PRAGMA foreign_keys=ON;
@@ -115,3 +125,5 @@ def init_db() -> None:
             """
         )
         c.commit()
+    finally:
+        c.close()

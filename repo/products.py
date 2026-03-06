@@ -1,10 +1,25 @@
 import sqlite3
+from pathlib import Path
 from core.db import q_all, q_one, exec_sql
+from core.settings import BASE_DIR
 
 
 def list_products() -> list[sqlite3.Row]:
     """全局产品列表。"""
     return q_all("SELECT * FROM products ORDER BY code")
+
+
+def list_categories() -> list[str]:
+    """返回所有非空类别（去重、排序）。"""
+    rows = q_all(
+        "SELECT DISTINCT category FROM products WHERE category IS NOT NULL AND category != '' ORDER BY category"
+    )
+    return [r["category"] for r in rows]
+
+
+def list_products_by_category(category: str) -> list[sqlite3.Row]:
+    """按类别查询产品列表。"""
+    return q_all("SELECT * FROM products WHERE category=? ORDER BY code", (category,))
 
 
 def get_product(code: str) -> sqlite3.Row | None:
@@ -31,10 +46,6 @@ def update_product(code: str, name: str, category: str, intro: str, detail: str,
         (name, category, intro, detail, image_path, code),
     )
 
-
-from pathlib import Path
-from core.settings import BASE_DIR
-from core.db import q_one  # 你文件里已有 q_one，就不用重复导入
 
 def delete_product(code: str) -> None:
     """删除产品（级联删除引用记录）。若图片无其他产品引用，则同时删除图片文件。"""

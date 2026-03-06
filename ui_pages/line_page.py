@@ -2,31 +2,10 @@ import streamlit as st
 from streamlit_agraph import agraph, Config
 
 from core.scroll import safe_dom_id, scroll_to_anchor, go
+from core.ui_utils import get_clicked_node
 from graph.nodes import img_path_or_none, show_image_with_zoom
 from graph.build_line import build_line_graph
 from repo.lines import list_lines_sorted, get_line
-
-
-def get_clicked_node(selected):
-    """
-    兼容 agraph 版本差异：提取点击的 node id。
-    """
-    if not selected:
-        return None
-    if isinstance(selected, str):
-        return selected
-    if isinstance(selected, dict):
-        if selected.get("node"):
-            return selected["node"]
-        nodes = selected.get("nodes")
-        if isinstance(nodes, list) and nodes:
-            return nodes[0]
-        s = selected.get("selected")
-        if isinstance(s, dict):
-            nodes2 = s.get("nodes")
-            if isinstance(nodes2, list) and nodes2:
-                return nodes2[0]
-    return None
 
 
 def render_line_page() -> None:
@@ -36,7 +15,8 @@ def render_line_page() -> None:
     - 显示线内关系图（手动坐标）
     - 下方卡片列表：点击节点 => 滚动到卡片；按钮 => 进入详情页
     """
-    st.subheader("产品线页面（左→右分层，强=实线，弱=虚线）")
+    st.markdown("#### :material/account_tree: 产品线")
+    st.caption("左→右分层 · 实线=强关系 · 虚线=弱关系")
 
     lines, id2d = list_lines_sorted()
     if not lines:

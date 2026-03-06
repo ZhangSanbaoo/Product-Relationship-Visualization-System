@@ -6,7 +6,7 @@ __pycache__/
 .streamlit/
 
 # Database
-# data.sqlite3
+data.sqlite3
 
 # Images (optional)
 # img/
@@ -17,3 +17,8 @@ venv/
 
 # OS
 .DS_Store
+
+# Build artifacts
+build/
+dist/
+*.spec

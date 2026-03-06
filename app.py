@@ -5,6 +5,7 @@ from core.migrations import ensure_schema_migrations
 from core.scroll import ensure_router_state, soft_scroll_top, go
 
 from ui_pages.line_page import render_line_page
+from ui_pages.category_page import render_category_page
 from ui_pages.product_page import render_product_page
 from ui_pages.admin_page import render_admin_page
 from repo.lines import list_lines_sorted
@@ -22,7 +23,6 @@ def apply_pending_navigation():
     p = st.session_state.pending
     st.session_state.page = p["page"]
     st.session_state.line_id = p["line_id"]
-    st.session_state.nav_radio = st.session_state.page
 
     if p.get("product") not in (None, ""):
         st.session_state.product = p["product"]
@@ -59,27 +59,42 @@ def main():
         soft_scroll_top()
 
     # Sidebar
-    st.sidebar.title("导航")
-    pages = ["产品线", "产品详情", "后台管理"]
+    NAV_ITEMS = [
+        ("产品线",   ":material/account_tree:"),
+        ("产品分类", ":material/category:"),
+        ("产品详情", ":material/info:"),
+        ("后台管理", ":material/settings:"),
+    ]
 
-    # 只要 session_state.page 变了，radio 就会自动显示对应项
-    if "nav_radio" not in st.session_state:
-        st.session_state.nav_radio = st.session_state.page
+    with st.sidebar:
+        st.markdown(
+            "<h2 style='text-align:center; margin-bottom:0.2em;'>PRVS</h2>"
+            "<p style='text-align:center; font-size:0.82em; color:gray; margin-top:0;'>"
+            "产品关系可视化系统</p>",
+            unsafe_allow_html=True,
+        )
+        st.divider()
 
-    chosen = st.sidebar.radio("页面", pages, key="nav_radio")
+        for name, icon in NAV_ITEMS:
+            btn_type = "primary" if st.session_state.page == name else "secondary"
+            if st.button(
+                f" {name}",
+                key=f"nav_{name}",
+                icon=icon,
+                use_container_width=True,
+                type=btn_type,
+            ):
+                if name != st.session_state.page:
+                    go(name, line_id=st.session_state.line_id, product_code=st.session_state.product)
 
-    # 统一用 chosen 驱动 page
-    if chosen != st.session_state.page:
-        go(chosen, line_id=st.session_state.line_id, product_code=st.session_state.product)
-
-
-    # 手动切页：统一走 go()
-    if chosen != st.session_state.page:
-        go(chosen, line_id=st.session_state.line_id, product_code=st.session_state.product)
+        st.divider()
+        st.caption("v1.0 · Streamlit + SQLite")
 
     # Render
     if st.session_state.page == "产品线":
         render_line_page()
+    elif st.session_state.page == "产品分类":
+        render_category_page()
     elif st.session_state.page == "产品详情":
         render_product_page()
     else:

@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(python3 -c \"print\\(''ok''\\)\")",
+      "Bash(py -c \"print\\(''ok''\\)\")",
+      "Bash(ls /c/Python*/python.exe)",
+      "Read(//c/Users/Asus/AppData/Local/Programs/Python/**)",
+      "Bash(/c/Users/Asus/AppData/Local/Programs/Python/Python311/python.exe:*)"
+    ]
+  }
+}

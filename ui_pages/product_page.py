@@ -2,31 +2,12 @@ import streamlit as st
 from streamlit_agraph import agraph, Config
 
 from core.scroll import go
+from core.ui_utils import get_clicked_node
 from graph.nodes import img_path_or_none, show_image_with_zoom
 from graph.build_product_global import build_product_graph_global
 from repo.products import list_products
 from repo.line_content import list_lines_for_product
 from repo.lines import list_lines_sorted
-
-
-def get_clicked_node(selected):
-    """兼容不同 agraph 返回结构。"""
-    if not selected:
-        return None
-    if isinstance(selected, str):
-        return selected
-    if isinstance(selected, dict):
-        if selected.get("node"):
-            return selected["node"]
-        nodes = selected.get("nodes")
-        if isinstance(nodes, list) and nodes:
-            return nodes[0]
-        s = selected.get("selected")
-        if isinstance(s, dict):
-            nodes2 = s.get("nodes")
-            if isinstance(nodes2, list) and nodes2:
-                return nodes2[0]
-    return None
 
 
 def render_product_page() -> None:
@@ -36,7 +17,8 @@ def render_product_page() -> None:
     - 显示跨线的上下游/无向关系图（层级 UD）
     - 展示详情 + 所属产品线快捷返回
     """
-    st.subheader("产品详情页面（展示该产品所有可能的上下游/可连接产品）")
+    st.markdown("#### :material/info: 产品详情")
+    st.caption("展示该产品跨产品线的上下游与可连接关系")
 
     products = list_products()
     if not products:

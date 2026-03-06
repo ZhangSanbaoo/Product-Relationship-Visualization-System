@@ -43,19 +43,15 @@ def image_to_data_uri_and_luma(path_str: str, thumb: int = GRAPH_THUMB) -> Tuple
 
     luma = 255.0
     try:
-        from PIL import Image
+        from PIL import Image, ImageStat
 
         im = Image.open(io.BytesIO(raw)).convert("RGBA")
         im.thumbnail((thumb, thumb))
 
         rgb = im.convert("RGB")
-        w, h = rgb.size
-        n = w * h
-        if n > 0:
-            total = 0.0
-            for r, g, b in rgb.getdata():
-                total += 0.2126 * r + 0.7152 * g + 0.0722 * b
-            luma = total / n
+        stat = ImageStat.Stat(rgb)
+        r_mean, g_mean, b_mean = stat.mean
+        luma = 0.2126 * r_mean + 0.7152 * g_mean + 0.0722 * b_mean
 
         buf = io.BytesIO()
         im.save(buf, format="PNG")

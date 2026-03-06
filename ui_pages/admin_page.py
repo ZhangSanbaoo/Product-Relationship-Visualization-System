@@ -12,7 +12,7 @@ from repo.products import (
 )
 from repo.lines import (
     list_lines_sorted, get_line, create_line, update_line, delete_line,
-    set_line_display_order, normalize_display_order, move_line_rank
+    normalize_display_order, move_line_rank
 )
 from repo.line_content import (
     list_line_members, list_line_members_simple, line_has_product,
@@ -24,115 +24,179 @@ from repo.relations import (
 )
 
 
-def render_admin_page() -> None:
-    """
-    后台管理页：
-    - 产品库（全局）
-    - 产品线管理
-    - 产品线内容管理（线内产品 / 线内关系）
-    """
-    st.subheader("后台管理（3 个模块）")
+# ── helpers ──────────────────────────────────────────────
 
-    module = st.radio(
-        "后台模块",
-        ["产品库（全局）", "产品线管理", "产品线内容管理"],
-        index=["产品库（全局）", "产品线管理", "产品线内容管理"].index(st.session_state.admin_module),
-        horizontal=True,
-        key="admin_module_radio",
+MODULES = [
+    ("产品库",       ":material/inventory_2:"),
+    ("产品线",       ":material/linear_scale:"),
+    ("产品线内容",   ":material/tune:"),
+]
+
+SUB_TABS = [
+    ("线内产品", ":material/view_list:"),
+    ("线内关系", ":material/cable:"),
+]
+
+
+def _product_df(rows) -> pd.DataFrame:
+    """产品列表 → 精简 DataFrame（隐藏大文本字段）。"""
+    if not rows:
+        return pd.DataFrame()
+    return pd.DataFrame(
+        [{"型号": r["code"], "名称": r["name"], "类别": r["category"] or "", "图片": r["image_path"] or ""} for r in rows]
     )
-    st.session_state.admin_module = module
 
+
+def _line_df(lines, id2d) -> pd.DataFrame:
+    if not lines:
+        return pd.DataFrame()
+    return pd.DataFrame(
+        [{"#": id2d[l["id"]], "名称": l["name"], "描述": l["description"] or ""} for l in lines]
+    )
+
+
+def _member_df(rows) -> pd.DataFrame:
+    if not rows:
+        return pd.DataFrame()
+    return pd.DataFrame(
+        [{"型号": r["code"], "名称": r["name"], "X": r["sort_order"], "Y": r["y_pos"],
+          "主线": "是" if r["is_main"] else ""} for r in rows]
+    )
+
+
+def _relation_df(rows) -> pd.DataFrame:
+    if not rows:
+        return pd.DataFrame()
+    return pd.DataFrame(
+        [{"ID": r["id"],
+          "起点": f'{r["from_code"]} {r["from_name"]}',
+          "终点": f'{r["to_code"]} {r["to_name"]}',
+          "强弱": r["strength"],
+          "有向": "→" if r["directed"] else "↔",
+          "标签": r["edge_label"] or ""} for r in rows]
+    )
+
+
+# ── main render ──────────────────────────────────────────
+
+def render_admin_page() -> None:
+    st.markdown("#### :material/settings: 后台管理")
+
+    # ── 模块切换按钮 ──
+    cols = st.columns(len(MODULES))
+    for col, (name, icon) in zip(cols, MODULES):
+        with col:
+            btn_type = "primary" if st.session_state.admin_module == name else "secondary"
+            if st.button(name, key=f"adm_{name}", icon=icon, use_container_width=True, type=btn_type):
+                if st.session_state.admin_module != name:
+                    st.session_state.admin_module = name
+                    st.rerun()
+
+    st.divider()
+
+    module = st.session_state.admin_module
     prods = list_products()
     lines_now, id2d = list_lines_sorted()
 
-    # -------------------- 产品库（全局） --------------------
-    if module == "产品库（全局）":
-        st.markdown("## 产品库（全局）")
+    if module == "产品库":
+        _render_products(prods)
+    elif module == "产品线":
+        _render_lines(lines_now, id2d)
+    else:
+        _render_line_content(prods, lines_now, id2d)
 
-        st.markdown("### 新增产品（图片同型号覆盖）")
+
+# ── 产品库 ───────────────────────────────────────────────
+
+def _render_products(prods):
+    # 新增（折叠）
+    with st.expander(":material/add_circle: 新增产品", expanded=False):
         fid = st.session_state.form_product_id
-
         with st.form(f"create_product_{fid}", clear_on_submit=False):
-            code = st.text_input("型号/代号 code*", key=f"new_p_code_{fid}")
-            name = st.text_input("产品名*", key=f"new_p_name_{fid}")
-            category = st.text_input("类别", key=f"new_p_cat_{fid}")
-            intro = st.text_area("简介（用于产品线页）", key=f"new_p_intro_{fid}")
-            detail = st.text_area("详情（用于产品详情页）", key=f"new_p_detail_{fid}")
-            img = st.file_uploader("图片（可选；同型号覆盖）", type=["png", "jpg", "jpeg", "webp"], key=f"new_p_img_{fid}")
-            ok = st.form_submit_button("新增")
+            c1, c2 = st.columns(2)
+            with c1:
+                code = st.text_input("型号 code *", key=f"new_p_code_{fid}")
+                category = st.text_input("类别", key=f"new_p_cat_{fid}")
+            with c2:
+                name = st.text_input("产品名 *", key=f"new_p_name_{fid}")
+                img = st.file_uploader("图片", type=["png", "jpg", "jpeg", "webp"], key=f"new_p_img_{fid}")
+            intro = st.text_area("简介（产品线页展示）", key=f"new_p_intro_{fid}", height=80)
+            detail = st.text_area("详情（详情页展示）", key=f"new_p_detail_{fid}", height=80)
+            ok = st.form_submit_button("新增", icon=":material/add:")
 
         if ok:
             if not code.strip() or not name.strip():
-                st.error("code 和 产品名 都不能为空")
+                st.error("code 和产品名不能为空")
             else:
                 image_path = None
                 if img is not None:
                     image_path = save_product_image_overwrite(code.strip(), name.strip(), img, IMG_DIR)
-
                 try:
                     create_product(code.strip(), name.strip(), category, intro, detail, image_path)
                     st.success("已新增")
                     st.session_state.form_product_id += 1
                     st.rerun()
                 except sqlite3.IntegrityError:
-                    st.error("该 code 已存在。请在下方修改，或换一个 code。")
+                    st.error("该 code 已存在，请换一个或在下方修改。")
 
-        st.markdown("### 产品列表")
-        rows = list_products()
-        st.dataframe(pd.DataFrame([dict(r) for r in rows]) if rows else pd.DataFrame(), width="stretch")
+    # 列表
+    rows = list_products()
+    st.dataframe(_product_df(rows), use_container_width=True, hide_index=True)
 
-        st.markdown("### 修改 / 删除产品")
-        if not rows:
-            st.info("暂无产品。")
-            return
+    if not rows:
+        st.info("暂无产品。")
+        return
 
-        labels = [f'{p["code"]} | {p["name"]}' for p in rows]
-        pick = st.selectbox("选择产品", labels, key="admin_pick_product")
-        code0 = pick.split(" | ")[0].strip()
-        p = get_product(code0)
+    # 编辑 / 删除
+    st.markdown("##### 编辑产品")
+    labels = [f'{p["code"]} | {p["name"]}' for p in rows]
+    pick = st.selectbox("选择产品", labels, key="admin_pick_product", label_visibility="collapsed")
+    code0 = pick.split(" | ")[0].strip()
+    p = get_product(code0)
 
-        colA, colB = st.columns([2, 1], gap="large")
-        with colA:
-            with st.form("edit_product"):
-                name2 = st.text_input("产品名", p["name"])
-                category2 = st.text_input("类别", p["category"] or "")
-                intro2 = st.text_area("简介", p["intro"] or "")
-                detail2 = st.text_area("详情", p["detail"] or "")
-                img2 = st.file_uploader(
-                    "替换图片（可选；同型号覆盖）",
-                    type=["png", "jpg", "jpeg", "webp"],
-                    key=f"edit_p_img_{code0}",   # ✅ 关键：跟 code 绑定
-                )
-                clear_img = st.checkbox("清空图片（变成无图片）", value=False)
-                ok2 = st.form_submit_button("保存修改")
+    with st.form("edit_product"):
+        c1, c2 = st.columns(2)
+        with c1:
+            name2 = st.text_input("产品名", p["name"])
+            category2 = st.text_input("类别", p["category"] or "")
+        with c2:
+            img2 = st.file_uploader("替换图片", type=["png", "jpg", "jpeg", "webp"], key=f"edit_p_img_{code0}")
+            clear_img = st.checkbox("清空图片", value=False)
+        intro2 = st.text_area("简介", p["intro"] or "", height=80)
+        detail2 = st.text_area("详情", p["detail"] or "", height=80)
 
-            if ok2:
-                image_path = p["image_path"]
-                if clear_img:
-                    image_path = None
-                elif img2 is not None:
-                    image_path = save_product_image_overwrite(code0, name2.strip(), img2, IMG_DIR)
+        fc1, fc2 = st.columns([3, 1])
+        with fc1:
+            ok2 = st.form_submit_button("保存修改", icon=":material/save:")
+        with fc2:
+            do_del = st.form_submit_button("删除该产品", icon=":material/delete:", type="secondary")
 
-                update_product(code0, name2.strip(), category2, intro2, detail2, image_path)
-                st.success("已保存")
-                st.rerun()
+    if ok2:
+        image_path = p["image_path"]
+        if clear_img:
+            image_path = None
+        elif img2 is not None:
+            image_path = save_product_image_overwrite(code0, name2.strip(), img2, IMG_DIR)
+        update_product(code0, name2.strip(), category2, intro2, detail2, image_path)
+        st.success("已保存")
+        st.rerun()
 
-        with colB:
-            if st.button("删除该产品（级联删除）", key="admin_del_product"):
-                delete_product(code0)
-                st.success("已删除")
-                st.rerun()
+    if do_del:
+        delete_product(code0)
+        st.success("已删除")
+        st.rerun()
 
-    # -------------------- 产品线管理 --------------------
-    elif module == "产品线管理":
-        st.markdown("## 产品线管理")
 
-        st.markdown("### 新增产品线")
+# ── 产品线管理 ───────────────────────────────────────────
+
+def _render_lines(lines_now, id2d):
+    # 新增（折叠）
+    with st.expander(":material/add_circle: 新增产品线", expanded=False):
         fid = st.session_state.form_line_id
         with st.form(f"create_line_{fid}", clear_on_submit=False):
-            name = st.text_input("产品线名*", key=f"new_line_name_{fid}")
-            desc = st.text_area("描述", key=f"new_line_desc_{fid}")
-            ok = st.form_submit_button("新增产品线")
+            name = st.text_input("产品线名 *", key=f"new_line_name_{fid}")
+            desc = st.text_area("描述", key=f"new_line_desc_{fid}", height=80)
+            ok = st.form_submit_button("新增", icon=":material/add:")
 
         if ok:
             if not name.strip():
@@ -144,241 +208,266 @@ def render_admin_page() -> None:
                     st.session_state.form_line_id += 1
                     st.rerun()
                 except sqlite3.IntegrityError:
-                    st.error("该产品线名已存在，请换个名字。")
+                    st.error("该产品线名已存在。")
 
-        st.markdown("### 产品线列表")
-        lines_now, id2d = list_lines_sorted()
-        st.dataframe(pd.DataFrame([dict(r) for r in lines_now]) if lines_now else pd.DataFrame(), width="stretch")
+    # 列表
+    lines_now, id2d = list_lines_sorted()
+    st.dataframe(_line_df(lines_now, id2d), use_container_width=True, hide_index=True)
 
-        if not lines_now:
-            st.info("暂无产品线。")
-            return
+    if not lines_now:
+        st.info("暂无产品线。")
+        return
 
-        opts = [f'#{id2d[l["id"]]} {l["name"]}' for l in lines_now]
-        chosen_line = st.selectbox("选择要修改/删除的产品线", opts, key="admin_line_pick_for_edit")
-        lid = int(chosen_line.split(" ")[0].replace("#", "").strip())
-        # 由于 display 编号不是 id，这里用 name 查回 id 更稳：
-        name_part = chosen_line.split(" ", 1)[1]
-        lid = next(l["id"] for l in lines_now if l["name"] == name_part)
+    # 选择
+    line_map = {f'#{id2d[l["id"]]} {l["name"]}': l["id"] for l in lines_now}
+    opts = list(line_map.keys())
+    chosen_line = st.selectbox("选择产品线", opts, key="admin_line_pick_for_edit", label_visibility="collapsed")
+    lid = line_map[chosen_line]
+    line = get_line(int(lid))
 
-        line = get_line(int(lid))
+    # 编辑 + 排序 + 删除放在两栏
+    left, right = st.columns([2, 1], gap="large")
 
-        st.markdown("### 修改 / 删除该产品线")
-        colA, colB = st.columns([2, 1], gap="large")
-        with colA:
-            with st.form("edit_line"):
-                name2 = st.text_input("产品线名", line["name"])
-                desc2 = st.text_area("描述", line["description"] or "")
-                ok2 = st.form_submit_button("保存修改")
-            if ok2:
-                update_line(int(lid), name2.strip(), desc2)
-                st.success("已保存")
-                st.rerun()
+    with left:
+        st.markdown("##### 编辑")
+        with st.form("edit_line"):
+            name2 = st.text_input("产品线名", line["name"])
+            desc2 = st.text_area("描述", line["description"] or "", height=80)
+            ok2 = st.form_submit_button("保存修改", icon=":material/save:")
+        if ok2:
+            update_line(int(lid), name2.strip(), desc2)
+            st.success("已保存")
+            st.rerun()
 
-        with colB:
-            if st.button("删除该产品线（级联删除）", key="admin_del_line"):
-                delete_line(int(lid))
-                st.success("已删除")
-                st.rerun()
-
-        st.markdown("### 调整显示编号（下拉顺序）")
-        lines_now, id2d = list_lines_sorted()
-        opts2 = [f'#{id2d[l["id"]]} {l["name"]}' for l in lines_now]
-        pick2 = st.selectbox("选择要调整顺序的产品线", opts2, key="line_reorder_pick")
-        name2 = pick2.split(" ", 1)[1]
-        lid2 = next(l["id"] for l in lines_now if l["name"] == name2)
-
-        cur_rank = int(id2d.get(lid2, 1))
+    with right:
+        st.markdown("##### 排序 & 操作")
+        cur_rank = int(id2d.get(lid, 1))
         new_rank = st.number_input(
-            f"新的显示编号（1..{len(lines_now)}，越小越靠前）",
-            min_value=1,
-            max_value=max(1, len(lines_now)),
-            step=1,
-            value=cur_rank,
-            key=f"line_new_rank_{lid2}",
+            f"显示位置（1‥{len(lines_now)}）",
+            min_value=1, max_value=max(1, len(lines_now)), step=1,
+            value=cur_rank, key=f"line_new_rank_{lid}",
         )
-
         c1, c2 = st.columns(2)
         with c1:
-            if st.button("保存显示顺序", key="btn_save_line_order"):
-                move_line_rank(int(lid2), int(new_rank))
-                st.success("已更新显示顺序")
+            if st.button("保存排序", key="btn_save_line_order", icon=":material/swap_vert:", use_container_width=True):
+                move_line_rank(int(lid), int(new_rank))
+                st.success("已更新")
                 st.rerun()
-
         with c2:
-            if st.button("重新规范化为 1..n", key="btn_reindex_line_order"):
+            if st.button("规范化 1‥n", key="btn_reindex", icon=":material/format_list_numbered:", use_container_width=True):
                 normalize_display_order()
-                st.success("已规范化为连续编号 1..n")
+                st.success("已规范化")
                 st.rerun()
 
-        st.markdown("#### 当前下拉顺序对照（显示编号 / display_order / 产品线名）")
-        lines_now2, id2d2 = list_lines_sorted()
-        rows = [
-            {"显示编号": id2d2[l["id"]], "display_order": l["display_order"], "产品线名": l["name"]}
-            for l in lines_now2
-        ]
-        st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
+        st.divider()
+        if st.button("删除该产品线", key="admin_del_line", icon=":material/delete:", type="secondary", use_container_width=True):
+            delete_line(int(lid))
+            st.success("已删除")
+            st.rerun()
 
 
+# ── 产品线内容管理 ───────────────────────────────────────
 
-    # -------------------- 产品线内容管理 --------------------
+def _render_line_content(prods, lines_now, id2d):
+    if not lines_now:
+        st.info("还没有产品线，请先到【产品线】模块新增。")
+        return
+
+    current_line_id = st.session_state.admin_selected_line or st.session_state.line_id or lines_now[0]["id"]
+    lines_now, id2d = list_lines_sorted()
+    lmap = {f'#{id2d[l["id"]]} {l["name"]}': l["id"] for l in lines_now}
+    keys = list(lmap.keys())
+    vals = list(lmap.values())
+    idx = vals.index(current_line_id) if current_line_id in vals else 0
+
+    chosen_line = st.selectbox("选择产品线", keys, index=idx, key="admin_manage_line")
+    lid = int(lmap[chosen_line])
+    st.session_state.admin_selected_line = lid
+
+    # 子模块按钮
+    sc1, sc2 = st.columns(2)
+    with sc1:
+        btn_type = "primary" if st.session_state.admin_line_sub == "该线包含的产品" else "secondary"
+        if st.button("线内产品", key="sub_prod", icon=":material/view_list:", use_container_width=True, type=btn_type):
+            if st.session_state.admin_line_sub != "该线包含的产品":
+                st.session_state.admin_line_sub = "该线包含的产品"
+                st.rerun()
+    with sc2:
+        btn_type = "primary" if st.session_state.admin_line_sub == "该线产品关系" else "secondary"
+        if st.button("线内关系", key="sub_rel", icon=":material/cable:", use_container_width=True, type=btn_type):
+            if st.session_state.admin_line_sub != "该线产品关系":
+                st.session_state.admin_line_sub = "该线产品关系"
+                st.rerun()
+
+    st.divider()
+
+    if st.session_state.admin_line_sub == "该线包含的产品":
+        _render_line_members(prods, lid)
     else:
-        st.markdown("## 产品线内容管理（先选产品线，再管该线的产品与关系）")
+        _render_line_relations(lid)
 
-        if not lines_now:
-            st.info("还没有产品线。请先到【产品线管理】新增产品线。")
-            return
 
-        current_line_id = st.session_state.admin_selected_line or st.session_state.line_id or lines_now[0]["id"]
-        lines_now, id2d = list_lines_sorted()
-        lmap = {f'#{id2d[l["id"]]} {l["name"]}': l["id"] for l in lines_now}
+def _render_line_members(prods, lid):
+    if not prods:
+        st.info("产品库为空，请先到【产品库】新增产品。")
+        return
 
-        keys = list(lmap.keys())
-        vals = list(lmap.values())
-        idx = vals.index(current_line_id) if current_line_id in vals else 0
+    # 添加（折叠）
+    with st.expander(":material/add_circle: 添加产品到该线", expanded=False):
+        labels = [f'{p["code"]} | {p["name"]}' for p in prods]
+        code_map = {lab: lab.split(" | ")[0].strip() for lab in labels}
 
-        chosen_line = st.selectbox("选择要管理的产品线", keys, index=idx, key="admin_manage_line")
-        lid = int(lmap[chosen_line])
-        st.session_state.admin_selected_line = lid
+        fid = st.session_state.form_lp_id
+        with st.form(f"add_lp_{fid}", clear_on_submit=False):
+            pcode = code_map[st.selectbox("选择产品", labels, key=f"lp_prod_{fid}")]
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                sort_order = st.number_input("X (sort_order)", step=0.25, value=0.0, key=f"lp_sort_{fid}")
+            with c2:
+                y_pos = st.number_input("Y (y_pos)", step=0.25, value=0.0, key=f"lp_y_{fid}")
+            with c3:
+                is_main = st.checkbox("主线节点", value=False, key=f"lp_main_{fid}")
+            ok = st.form_submit_button("添加", icon=":material/add:")
 
-        sub = st.radio(
-            "管理内容",
-            ["该线包含的产品", "该线产品关系"],
-            index=["该线包含的产品", "该线产品关系"].index(st.session_state.admin_line_sub),
-            horizontal=True,
-            key="admin_line_sub_radio",
-        )
-        st.session_state.admin_line_sub = sub
+        if ok:
+            if line_has_product(lid, pcode):
+                st.warning("该产品已在线内，请在下方修改。")
+            else:
+                add_product_to_line(lid, pcode, float(sort_order), float(y_pos), int(is_main))
+                st.success("已添加")
+                st.session_state.form_lp_id += 1
+                st.rerun()
 
-        # ---- 线内产品 ----
-        if sub == "该线包含的产品":
-            if not prods:
-                st.info("产品库里还没有产品。请先到【产品库（全局）】新增产品。")
-                return
+    # 成员列表
+    rows = list_line_members(lid)
+    st.dataframe(_member_df(rows), use_container_width=True, hide_index=True)
 
-            st.markdown("### 添加产品到该产品线（X/Y 为档位；Main 控制主线）")
-            labels = [f'{p["code"]} | {p["name"]}' for p in prods]
-            code_map = {lab: lab.split(" | ")[0].strip() for lab in labels}
+    if not rows:
+        return
 
-            fid = st.session_state.form_lp_id
-            with st.form(f"add_lp_{fid}", clear_on_submit=False):
-                pcode = code_map[st.selectbox("选择产品", labels, key=f"lp_prod_{fid}")]
-                sort_order = st.number_input("X：sort_order（档位；支持 0.25/0.5）", step=0.25, value=0.0, key=f"lp_sort_{fid}")
-                y_pos = st.number_input("Y：y_pos（档位；0=主线；1=上；-1=下）", step=0.25, value=0.0, key=f"lp_y_{fid}")
-                is_main = st.checkbox("主线节点（Main）", value=False, key=f"lp_main_{fid}")
-                ok = st.form_submit_button("添加（不覆盖）")
+    # 编辑成员
+    st.markdown("##### 编辑成员")
+    code_list = [r["code"] for r in rows]
+    code_to_row = {r["code"]: r for r in rows}
 
-            if ok:
-                if line_has_product(lid, pcode):
-                    st.warning("该产品已在该产品线中：不会覆盖。请在下方修改 X/Y/Main。")
-                else:
-                    add_product_to_line(lid, pcode, float(sort_order), float(y_pos), int(is_main))
-                    st.success("已添加")
-                    st.session_state.form_lp_id += 1
-                    st.rerun()
+    st.session_state.setdefault("lp_selected_code", code_list[0])
+    if st.session_state.lp_selected_code not in code_list:
+        st.session_state.lp_selected_code = code_list[0]
 
-            st.markdown("### 当前该线包含的产品（可修改/移除）")
-            rows = list_line_members(lid)
-            st.dataframe(pd.DataFrame([dict(r) for r in rows]) if rows else pd.DataFrame(), width="stretch")
+    code_sel = st.selectbox(
+        "选择成员", options=code_list,
+        index=code_list.index(st.session_state.lp_selected_code),
+        key="lp_edit_pick_code", label_visibility="collapsed",
+        format_func=lambda c: f'{c} | {code_to_row[c]["name"]}  (X={code_to_row[c]["sort_order"]}, Y={code_to_row[c]["y_pos"]})',
+    )
+    st.session_state.lp_selected_code = code_sel
+    r = code_to_row[code_sel]
 
-            if rows:
-                code_list = [r["code"] for r in rows]
-                code_to_row = {r["code"]: r for r in rows}
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        new_sort = st.number_input("X", step=0.25, value=float(r["sort_order"] or 0), key=f"lp_new_sort_{lid}_{code_sel}")
+    with c2:
+        new_y = st.number_input("Y", step=0.25, value=float(r["y_pos"] or 0), key=f"lp_new_y_{lid}_{code_sel}")
+    with c3:
+        new_main = st.checkbox("主线节点", value=bool(r["is_main"]), key=f"lp_new_main_{lid}_{code_sel}")
 
-                st.session_state.setdefault("lp_selected_code", code_list[0])
-                if st.session_state.lp_selected_code not in code_list:
-                    st.session_state.lp_selected_code = code_list[0]
+    bc1, bc2 = st.columns(2)
+    with bc1:
+        if st.button("保存修改", key="lp_save_sort", icon=":material/save:", use_container_width=True):
+            update_line_member(lid, code_sel, float(new_sort), float(new_y), int(new_main))
+            st.success("已保存")
+            st.rerun()
+    with bc2:
+        if st.button("移除该产品", key="lp_remove", icon=":material/person_remove:", use_container_width=True, type="secondary"):
+            delete_relations_of_product_in_line(lid, code_sel)
+            remove_product_from_line(lid, code_sel)
+            st.success("已移除")
+            st.rerun()
 
-                code_sel = st.selectbox(
-                    "选择要修改/移除的项",
-                    options=code_list,
-                    index=code_list.index(st.session_state.lp_selected_code),
-                    key="lp_edit_pick_code",
-                    format_func=lambda c: (
-                        f'{c} | {code_to_row[c]["name"]} '
-                        f'(X={code_to_row[c]["sort_order"]}, Y={code_to_row[c]["y_pos"]}, main={code_to_row[c]["is_main"]})'
-                    ),
-                )
-                st.session_state.lp_selected_code = code_sel
-                r = code_to_row[code_sel]
+    # 预览图
+    with st.expander(":material/preview: 产品线关系图预览", expanded=True):
+        _p, nodes_pv, edges_pv = build_line_graph(lid)
+        if nodes_pv:
+            config_pv = Config(width="100%", height=260, directed=True, physics=False, hierarchical=False, nodeHighlightBehavior=True)
+            agraph(nodes=nodes_pv, edges=edges_pv, config=config_pv)
 
-                new_sort = st.number_input("新的 X：sort_order", step=0.25, value=float(r["sort_order"] or 0), key=f"lp_new_sort_{lid}_{code_sel}")
-                new_y = st.number_input("新的 Y：y_pos", step=0.25, value=float(r["y_pos"] or 0), key=f"lp_new_y_{lid}_{code_sel}")
-                new_main = st.checkbox("主线节点（Main）", value=bool(r["is_main"]), key=f"lp_new_main_{lid}_{code_sel}")
 
-                c1, c2 = st.columns(2)
-                with c1:
-                    if st.button("保存修改", key="lp_save_sort"):
-                        update_line_member(lid, code_sel, float(new_sort), float(new_y), int(new_main))
-                        st.success("已保存")
-                        st.rerun()
+def _render_line_relations(lid):
+    members = list_line_members_simple(lid)
+    if not members:
+        st.info("该线还没有产品，请先添加产品。")
+        return
 
-                with c2:
-                    if st.button("从该产品线移除该产品（并删除相关关系）", key="lp_remove"):
-                        delete_relations_of_product_in_line(lid, code_sel)
-                        remove_product_from_line(lid, code_sel)
-                        st.success("已移除，并删除相关关系")
-                        st.rerun()
+    code_to_name = {m["code"]: m["name"] for m in members}
+    codes = list(code_to_name.keys())
 
-                st.markdown("### 小预览（该产品线关系图）")
-                _p, nodes_pv, edges_pv = build_line_graph(lid)
-                config_pv = Config(width="100%", height=260, directed=True, physics=False, hierarchical=False, nodeHighlightBehavior=True)
-                agraph(nodes=nodes_pv, edges=edges_pv, config=config_pv)
-
-        # ---- 线内关系 ----
-        else:
-            members = list_line_members_simple(lid)
-            if not members:
-                st.info("该产品线还没有产品。请先把产品加入该线，然后再配置关系。")
-                return
-
-            code_to_name = {m["code"]: m["name"] for m in members}
-            codes = list(code_to_name.keys())
-
-            st.markdown("### 新增关系（提交时校验）")
-            from_code = st.selectbox("from（上游/起点）", options=codes, key=f"rel_from_{lid}", format_func=lambda c: f"{c} | {code_to_name.get(c,'')}")
-            to_code = st.selectbox("to（下游/终点）", options=codes, key=f"rel_to_{lid}", format_func=lambda c: f"{c} | {code_to_name.get(c,'')}")
+    # 新增（折叠）
+    with st.expander(":material/add_circle: 新增关系", expanded=False):
+        c1, c2 = st.columns(2)
+        with c1:
+            from_code = st.selectbox("起点 (from)", options=codes, key=f"rel_from_{lid}",
+                                     format_func=lambda c: f"{c} | {code_to_name.get(c, '')}")
+        with c2:
+            to_code = st.selectbox("终点 (to)", options=codes, key=f"rel_to_{lid}",
+                                   format_func=lambda c: f"{c} | {code_to_name.get(c, '')}")
+        c3, c4 = st.columns(2)
+        with c3:
             strength = st.selectbox("强弱", ["strong", "weak"], key=f"rel_strength_{lid}")
-            directed = st.selectbox("有向？", [1, 0], key=f"rel_directed_{lid}", format_func=lambda x: "有向(from->to)" if x == 1 else "无向互连")
-            rtype = st.text_input("relation_type", "compatible", key=f"rel_type_{lid}")
-            edge_label = st.text_input("edge_label（线上的文字）", "", key=f"rel_edge_label_{lid}")
+        with c4:
+            directed = st.selectbox("方向", [1, 0], key=f"rel_directed_{lid}",
+                                    format_func=lambda x: "有向 →" if x == 1 else "无向 ↔")
+        c5, c6 = st.columns(2)
+        with c5:
+            rtype = st.text_input("关系类型", "compatible", key=f"rel_type_{lid}")
+        with c6:
+            edge_label = st.text_input("边标签", "", key=f"rel_edge_label_{lid}")
 
+        if st.button("新增关系", key=f"rel_add_btn_{lid}", icon=":material/add:"):
+            if from_code == to_code:
+                st.error("起点和终点不能相同。")
+            else:
+                create_relation(lid, from_code, to_code, strength, int(directed), rtype, edge_label.strip() or None)
+                st.success(f"已新增：{from_code} → {to_code}")
+                st.rerun()
 
-            if st.button("新增关系", key=f"rel_add_btn_{lid}"):
-                if from_code == to_code:
-                    st.error("from 和 to 不能是同一个产品。")
-                else:
-                    create_relation(lid, from_code, to_code, strength, int(directed), rtype, edge_label.strip() or None)
-                    st.success(f"已新增：{from_code} -> {to_code}")
-                    st.rerun()
+    # 关系列表
+    rows = list_relations_in_line(lid)
+    st.dataframe(_relation_df(rows), use_container_width=True, hide_index=True)
 
-            st.markdown("### 该产品线内的关系（可修改/删除）")
-            rows = list_relations_in_line(lid)
-            st.dataframe(pd.DataFrame([dict(r) for r in rows]) if rows else pd.DataFrame(), width="stretch")
+    if not rows:
+        return
 
-            if rows:
-                options = [
-                    f'#{r["id"]}  {r["from_code"]} | {r["from_name"]}  ->  {r["to_code"]} | {r["to_name"]}   '
-                    f'({r["strength"]}, directed={r["directed"]})'
-                    for r in rows
-                ]
-                pick = st.selectbox("选择要修改/删除的关系", options, key="rel_pick")
-                r = rows[options.index(pick)]
+    # 编辑 / 删除
+    st.markdown("##### 编辑关系")
+    options = [
+        f'#{r["id"]}  {r["from_code"]} {"→" if r["directed"] else "↔"} {r["to_code"]}  ({r["strength"]})'
+        for r in rows
+    ]
+    pick = st.selectbox("选择关系", options, key="rel_pick", label_visibility="collapsed")
+    r = rows[options.index(pick)]
 
-                with st.form("edit_rel"):
-                    strength2 = st.selectbox("强弱", ["strong", "weak"], index=0 if r["strength"] == "strong" else 1)
-                    directed2 = st.selectbox("有向？", [1, 0], index=0 if r["directed"] == 1 else 1,
-                                            format_func=lambda x: "有向(from->to)" if x == 1 else "无向互连")
-                    rtype2 = st.text_input("relation_type", r["relation_type"] or "compatible")
-                    edge_label2 = st.text_input("edge_label（线上的文字）", (r["edge_label"] or "") if ("edge_label" in r.keys()) else "")
-                    ok2 = st.form_submit_button("保存修改")
+    with st.form("edit_rel"):
+        c1, c2 = st.columns(2)
+        with c1:
+            strength2 = st.selectbox("强弱", ["strong", "weak"], index=0 if r["strength"] == "strong" else 1)
+            rtype2 = st.text_input("关系类型", r["relation_type"] or "compatible")
+        with c2:
+            directed2 = st.selectbox("方向", [1, 0], index=0 if r["directed"] == 1 else 1,
+                                     format_func=lambda x: "有向 →" if x == 1 else "无向 ↔")
+            edge_label2 = st.text_input("边标签", (r["edge_label"] or "") if ("edge_label" in r.keys()) else "")
 
-                if ok2:
-                    update_relation(rel_id, strength2, int(directed2), rtype2, edge_label2.strip() or None)
-                    st.success("已保存")
-                    st.rerun()
+        fc1, fc2 = st.columns([3, 1])
+        with fc1:
+            ok2 = st.form_submit_button("保存修改", icon=":material/save:")
+        with fc2:
+            do_del = st.form_submit_button("删除该关系", icon=":material/delete:", type="secondary")
 
-                if st.button("删除该关系", key="rel_del_btn"):
-                    delete_relation(int(r["id"]))
-                    st.success("已删除")
-                    st.rerun()
+    if ok2:
+        update_relation(int(r["id"]), strength2, int(directed2), rtype2, edge_label2.strip() or None)
+        st.success("已保存")
+        st.rerun()
+
+    if do_del:
+        delete_relation(int(r["id"]))
+        st.success("已删除")
+        st.rerun()

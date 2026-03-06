@@ -58,9 +58,7 @@ def ensure_schema_migrations() -> None:
 
     if "display_order" not in col2_names:
         exec_sql("ALTER TABLE product_lines ADD COLUMN display_order INTEGER")
-        rows = q_all("SELECT id FROM product_lines ORDER BY id")
-        for i, r in enumerate(rows, start=1):
-            exec_sql("UPDATE product_lines SET display_order=? WHERE id=?", (i, r["id"]))
+        exec_sql("UPDATE product_lines SET display_order=id")
 
     exec_sql("UPDATE product_lines SET display_order=id WHERE display_order IS NULL")
 

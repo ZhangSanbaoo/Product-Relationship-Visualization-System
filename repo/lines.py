@@ -1,5 +1,5 @@
 import sqlite3
-from core.db import q_all, q_one, exec_sql
+from core.db import q_all, q_one, exec_sql, conn
 
 
 def list_lines_sorted() -> tuple[list[sqlite3.Row], dict[int, int]]:
@@ -48,25 +48,36 @@ def set_line_display_order(line_id: int, display_order: int) -> None:
 
 
 def normalize_display_order() -> None:
-    """将 display_order 规范化为 1..n。"""
-    rows = q_all("SELECT id FROM product_lines ORDER BY COALESCE(display_order, 999999), id")
-    for i, r in enumerate(rows, start=1):
-        exec_sql("UPDATE product_lines SET display_order=? WHERE id=?", (i, r["id"]))
+    """将 display_order 规范化为 1..n（单事务批量更新）。"""
+    c = conn()
+    try:
+        rows = c.execute("SELECT id FROM product_lines ORDER BY COALESCE(display_order, 999999), id").fetchall()
+        for i, r in enumerate(rows, start=1):
+            c.execute("UPDATE product_lines SET display_order=? WHERE id=?", (i, r["id"]))
+        c.commit()
+    finally:
+        c.close()
 
 def move_line_rank(line_id: int, new_rank: int) -> None:
     """
     将某条产品线移动到第 new_rank 位（1..n），并把 display_order 重新规范化为 1..n。
+    单事务批量更新。
     """
-    rows = q_all("SELECT id FROM product_lines ORDER BY COALESCE(display_order, 999999), id")
-    ids = [r["id"] for r in rows]
-    if line_id not in ids:
-        return
+    c = conn()
+    try:
+        rows = c.execute("SELECT id FROM product_lines ORDER BY COALESCE(display_order, 999999), id").fetchall()
+        ids = [r["id"] for r in rows]
+        if line_id not in ids:
+            return
 
-    n = len(ids)
-    new_rank = max(1, min(int(new_rank), n))
+        n = len(ids)
+        new_rank = max(1, min(int(new_rank), n))
 
-    ids.remove(line_id)
-    ids.insert(new_rank - 1, line_id)
+        ids.remove(line_id)
+        ids.insert(new_rank - 1, line_id)
 
-    for i, lid in enumerate(ids, start=1):
-        exec_sql("UPDATE product_lines SET display_order=? WHERE id=?", (i, lid))
+        for i, lid in enumerate(ids, start=1):
+            c.execute("UPDATE product_lines SET display_order=? WHERE id=?", (i, lid))
+        c.commit()
+    finally:
+        c.close()
