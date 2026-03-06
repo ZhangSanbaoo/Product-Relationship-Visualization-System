@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 from streamlit_agraph import agraph, Config
 
 from core.scroll import safe_dom_id, scroll_to_anchor, go
@@ -8,13 +9,68 @@ from graph.build_line import build_line_graph
 from repo.lines import list_lines_sorted, get_line
 
 
+def _inject_float_btn() -> None:
+    """注入右下角浮动按钮（纯 JS 滚动到页面锚点）。"""
+    components.html(
+        """
+        <script>
+        (function() {
+          try { var doc = window.parent.document; } catch(e) { var doc = document; }
+
+          if (!doc.getElementById("float-btn-style")) {
+            var s = doc.createElement("style");
+            s.id = "float-btn-style";
+            s.textContent =
+              '#float-back-to-graph{position:fixed;bottom:32px;right:32px;z-index:99999;' +
+              'width:44px;height:44px;border-radius:50%;border:none;background:#4A90D9;' +
+              'color:#fff;font-size:22px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25);' +
+              'display:flex;align-items:center;justify-content:center;' +
+              'transition:opacity .3s,transform .3s;opacity:0;pointer-events:none;}' +
+              '#float-back-to-graph.visible{opacity:1;pointer-events:auto;}' +
+              '#float-back-to-graph:hover{transform:scale(1.12);background:#357ABD;}';
+            doc.head.appendChild(s);
+          }
+
+          var btn = doc.getElementById("float-back-to-graph");
+          if (!btn) {
+            btn = doc.createElement("button");
+            btn.id = "float-back-to-graph";
+            btn.title = "回到顶部";
+            btn.innerHTML = "\\u21E7";
+            doc.body.appendChild(btn);
+          }
+
+          // 每次重新绑定 click（移除旧的防止重复）
+          btn.onclick = function() {
+            var anchor = doc.getElementById("line-page-top");
+            if (anchor) anchor.scrollIntoView({ behavior:"smooth", block:"start" });
+          };
+
+          function check() {
+            var b = doc.getElementById("float-back-to-graph");
+            if (!b) return;
+            var anchor = doc.getElementById("line-page-top");
+            if (!anchor) { b.classList.remove("visible"); return; }
+            try {
+              if (anchor.getBoundingClientRect().bottom < 0) b.classList.add("visible");
+              else b.classList.remove("visible");
+            } catch(e) { b.classList.remove("visible"); }
+          }
+
+          // 每次 rerun 都重新启动轮询
+          if (window.__float_poll) clearInterval(window.__float_poll);
+          window.__float_poll = setInterval(check, 400);
+          check();
+        })();
+        </script>
+        """,
+        height=0,
+    )
+
+
 def render_line_page() -> None:
-    """
-    产品线页：
-    - 选择产品线
-    - 显示线内关系图（手动坐标）
-    - 下方卡片列表：点击节点 => 滚动到卡片；按钮 => 进入详情页
-    """
+    # 页面顶部锚点（浮动按钮滚回此处）
+    st.markdown('<div id="line-page-top"></div>', unsafe_allow_html=True)
     st.markdown("#### :material/account_tree: 产品线")
     st.caption("左→右分层 · 实线=强关系 · 虚线=弱关系")
 
@@ -29,7 +85,6 @@ def render_line_page() -> None:
     vals = list(line_map.values())
     idx = vals.index(current_line_id) if current_line_id in vals else 0
 
-    # 在创建 widget 之前初始化 session_state
     if (
         "line_selectbox" not in st.session_state
         or st.session_state["line_selectbox"] not in keys
@@ -51,14 +106,23 @@ def render_line_page() -> None:
         return
 
     st.markdown("#### 产品线关系图（点击节点 => 滚动到卡片）")
+
     config = Config(width="100%", height=520, directed=True, physics=False, hierarchical=False, nodeHighlightBehavior=True)
     selected = agraph(nodes=nodes, edges=edges, config=config)
     clicked = get_clicked_node(selected)
 
-    if clicked:
+    # 判断是否有新的节点点击：比较 agraph 原始返回值与上次记录
+    # agraph 返回值变化 = 用户点击了不同节点（或首次点击）
+    # agraph 返回值不变 = 只是 rerun 重渲染，不应重复滚动
+    raw_selected = str(selected) if selected else None
+    prev_selected = st.session_state.get("_prev_agraph_selected")
+
+    if clicked and raw_selected != prev_selected:
         real_code = clicked.split("@@")[0]
         st.session_state.scroll_to = real_code
         st.session_state.needs_top = 0
+
+    st.session_state._prev_agraph_selected = raw_selected
 
     st.divider()
     st.markdown("#### 产品介绍（左图 / 中介绍 / 右按钮）")
@@ -97,7 +161,11 @@ def render_line_page() -> None:
 
         st.divider()
 
+    # 滚动 + 高亮
     if st.session_state.scroll_to:
         a = f"prod-{safe_dom_id(st.session_state.scroll_to)}"
-        scroll_to_anchor(a, offset=250)
+        scroll_to_anchor(a, offset=250, highlight=True)
         st.session_state.scroll_to = None
+
+    # 浮动返回按钮（纯 JS，无需隐藏 Streamlit 按钮）
+    _inject_float_btn()

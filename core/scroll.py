@@ -25,19 +25,33 @@ def soft_scroll_top() -> None:
     )
 
 
-def scroll_to_anchor(anchor_id: str, offset: int = 150) -> None:
+def scroll_to_anchor(anchor_id: str, offset: int = 150, highlight: bool = False) -> None:
     """
     滚动到指定 anchor（等待 DOM 渲染，轮询多次）。
 
     offset：顶部留白，避免被标题遮挡。
+    highlight：滚动完成后对目标卡片做短暂高亮闪烁。
     """
     anchor_id = safe_dom_id(anchor_id)
+    highlight_js = "true" if highlight else "false"
     components.html(
         f"""
+        <style>
+          @keyframes st-card-highlight {{
+            0%   {{ background-color: transparent; }}
+            20%  {{ background-color: rgba(255, 196, 0, 0.18); }}
+            100% {{ background-color: transparent; }}
+          }}
+          .st-card-flash {{
+            animation: st-card-highlight 1.5s ease-out;
+            border-radius: 8px;
+          }}
+        </style>
         <script>
         (function() {{
           const targetId = "{anchor_id}";
           const OFFSET = {int(offset)};
+          const DO_HIGHLIGHT = {highlight_js};
 
           try {{
             if (window.__st_scroll_timer) {{
@@ -85,6 +99,25 @@ def scroll_to_anchor(anchor_id: str, offset: int = 150) -> None:
             return top;
           }}
 
+          function flashCard(el) {{
+            if (!DO_HIGHLIGHT || !el) return;
+            try {{
+              var card = el.closest('[data-testid="stVerticalBlock"]') || el.parentElement;
+              if (!card) return;
+              var doc = el.ownerDocument;
+              if (!doc.getElementById("st-card-flash-style")) {{
+                var style = doc.createElement("style");
+                style.id = "st-card-flash-style";
+                style.textContent = "@keyframes st-card-highlight{{0%{{background-color:transparent}}20%{{background-color:rgba(255,196,0,0.18)}}100%{{background-color:transparent}}}}.st-card-flash{{animation:st-card-highlight 1.5s ease-out;border-radius:8px}}";
+                doc.head.appendChild(style);
+              }}
+              card.classList.remove("st-card-flash");
+              void card.offsetWidth;
+              card.classList.add("st-card-flash");
+              setTimeout(function() {{ card.classList.remove("st-card-flash"); }}, 1600);
+            }} catch(e) {{}}
+          }}
+
           function runOnce() {{
             const el = getEl();
             if (!el) return false;
@@ -93,6 +126,7 @@ def scroll_to_anchor(anchor_id: str, offset: int = 150) -> None:
 
             const targetTop = relativeTop(el, sp) - OFFSET;
             sp.scrollTo({{ top: targetTop, behavior: "smooth" }});
+            setTimeout(function() {{ flashCard(el); }}, 400);
             return true;
           }}
 

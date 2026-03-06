@@ -93,12 +93,19 @@ def main():
     # Render
     if st.session_state.page == "产品线":
         render_line_page()
-    elif st.session_state.page == "产品分类":
-        render_category_page()
-    elif st.session_state.page == "产品详情":
-        render_product_page()
     else:
-        render_admin_page()
+        # 非产品线页：移除浮动按钮（它被注入到父文档 body，切页后不会自动消失）
+        import streamlit.components.v1 as _c
+        _c.html(
+            '<script>try{var b=window.parent.document.getElementById("float-back-to-graph");if(b)b.remove();}catch(e){}</script>',
+            height=0,
+        )
+        if st.session_state.page == "产品分类":
+            render_category_page()
+        elif st.session_state.page == "产品详情":
+            render_product_page()
+        else:
+            render_admin_page()
 
 
 if __name__ == "__main__":
