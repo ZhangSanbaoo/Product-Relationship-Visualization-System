@@ -110,7 +110,7 @@ def main():
             st.rerun()
 
         st.divider()
-        st.caption("v1.0 · Streamlit + SQLite")
+        st.caption("v2.0 · Streamlit + SQLite")
 
     # ── 主区域 ──
     chat_open = st.session_state.chat_expanded

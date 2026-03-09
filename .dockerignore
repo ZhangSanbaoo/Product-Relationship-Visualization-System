@@ -1,0 +1,15 @@
+api_config.json
+data.sqlite3
+models/*.gguf
+.streamlit/
+.claude/
+__pycache__/
+*.pyc
+venv/
+.env/
+.git/
+.gitignore
+build/
+dist/
+*.spec
+.DS_Store
