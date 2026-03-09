@@ -22,3 +22,9 @@ venv/
 build/
 dist/
 *.spec
+
+# LLM models
+models/*.gguf
+
+# API config (contains keys)
+api_config.json

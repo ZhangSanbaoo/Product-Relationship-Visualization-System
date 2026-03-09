@@ -2,3 +2,5 @@ streamlit>=1.30
 streamlit-agraph>=0.0.45
 pandas>=1.5
 pillow>=9.0
+openai>=1.0
+# llama-cpp-python>=0.2  # 可选：本地 GGUF 模型支持，需 C++ 编译环境

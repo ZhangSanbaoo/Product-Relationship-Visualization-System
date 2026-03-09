@@ -22,6 +22,10 @@ from repo.relations import (
     list_relations_in_line, create_relation, update_relation, delete_relation,
     delete_relations_of_product_in_line
 )
+from repo.glossary import (
+    list_glossary, create_glossary_term, update_glossary_term, delete_glossary_term,
+    check_term_usage
+)
 
 
 # ── helpers ──────────────────────────────────────────────
@@ -30,6 +34,7 @@ MODULES = [
     ("产品库",       ":material/inventory_2:"),
     ("产品线",       ":material/linear_scale:"),
     ("产品线内容",   ":material/tune:"),
+    ("术语管理",     ":material/menu_book:"),
 ]
 
 SUB_TABS = [
@@ -102,8 +107,10 @@ def render_admin_page() -> None:
         _render_products(prods)
     elif module == "产品线":
         _render_lines(lines_now, id2d)
-    else:
+    elif module == "产品线内容":
         _render_line_content(prods, lines_now, id2d)
+    else:
+        _render_glossary()
 
 
 # ── 产品库 ───────────────────────────────────────────────
@@ -141,7 +148,7 @@ def _render_products(prods):
 
     # 列表
     rows = list_products()
-    st.dataframe(_product_df(rows), use_container_width=True, hide_index=True)
+    st.dataframe(_product_df(rows), width="stretch", hide_index=True)
 
     if not rows:
         st.info("暂无产品。")
@@ -212,7 +219,7 @@ def _render_lines(lines_now, id2d):
 
     # 列表
     lines_now, id2d = list_lines_sorted()
-    st.dataframe(_line_df(lines_now, id2d), use_container_width=True, hide_index=True)
+    st.dataframe(_line_df(lines_now, id2d), width="stretch", hide_index=True)
 
     if not lines_now:
         st.info("暂无产品线。")
@@ -340,7 +347,7 @@ def _render_line_members(prods, lid):
 
     # 成员列表
     rows = list_line_members(lid)
-    st.dataframe(_member_df(rows), use_container_width=True, hide_index=True)
+    st.dataframe(_member_df(rows), width="stretch", hide_index=True)
 
     if not rows:
         return
@@ -432,7 +439,7 @@ def _render_line_relations(lid):
 
     # 关系列表
     rows = list_relations_in_line(lid)
-    st.dataframe(_relation_df(rows), use_container_width=True, hide_index=True)
+    st.dataframe(_relation_df(rows), width="stretch", hide_index=True)
 
     if not rows:
         return
@@ -469,5 +476,78 @@ def _render_line_relations(lid):
 
     if do_del:
         delete_relation(int(r["id"]))
+        st.success("已删除")
+        st.rerun()
+
+
+# ── 术语管理 ─────────────────────────────────────────────
+
+def _render_glossary():
+    # 新增
+    with st.expander(":material/add_circle: 新增术语", expanded=False):
+        with st.form("add_glossary", clear_on_submit=True):
+            c1, c2 = st.columns([1, 2])
+            with c1:
+                term = st.text_input("术语 *")
+            with c2:
+                definition = st.text_input("解释 *")
+            ok = st.form_submit_button("新增", icon=":material/add:")
+        if ok:
+            if not term.strip() or not definition.strip():
+                st.error("术语和解释都不能为空")
+            else:
+                try:
+                    create_glossary_term(term.strip(), definition.strip())
+                    st.success(f"已新增：{term.strip()}")
+                    st.rerun()
+                except Exception:
+                    st.error("该术语已存在。")
+
+    # 列表
+    rows = list_glossary()
+    if not rows:
+        st.info("暂无术语。")
+        return
+
+    usage = check_term_usage()
+    table_data = []
+    for r in rows:
+        refs = usage.get(r["term"], [])
+        if refs:
+            status = f"已使用（{len(refs)}）: {', '.join(refs)}"
+        else:
+            status = "未使用"
+        table_data.append({"术语": r["term"], "解释": r["definition"], "引用状态": status})
+
+    st.dataframe(
+        pd.DataFrame(table_data),
+        width="stretch", hide_index=True,
+    )
+
+    # 编辑 / 删除
+    st.markdown("##### 编辑术语")
+    opts = {f'{r["term"]}': r["id"] for r in rows}
+    pick = st.selectbox("选择术语", list(opts.keys()), key="glossary_pick", label_visibility="collapsed")
+    tid = opts[pick]
+    row = next(r for r in rows if r["id"] == tid)
+
+    with st.form("edit_glossary"):
+        c1, c2 = st.columns([1, 2])
+        with c1:
+            term2 = st.text_input("术语", row["term"])
+        with c2:
+            def2 = st.text_input("解释", row["definition"])
+        fc1, fc2 = st.columns([3, 1])
+        with fc1:
+            ok2 = st.form_submit_button("保存修改", icon=":material/save:")
+        with fc2:
+            do_del = st.form_submit_button("删除", icon=":material/delete:", type="secondary")
+
+    if ok2:
+        update_glossary_term(tid, term2.strip(), def2.strip())
+        st.success("已保存")
+        st.rerun()
+    if do_del:
+        delete_glossary_term(tid)
         st.success("已删除")
         st.rerun()

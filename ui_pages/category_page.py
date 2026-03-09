@@ -1,6 +1,7 @@
 import streamlit as st
 
 from core.scroll import go
+from core.glossary_render import render_glossary_text
 from graph.nodes import img_path_or_none, show_image_with_zoom
 from repo.products import list_categories, list_products_by_category
 
@@ -38,7 +39,7 @@ def render_category_page() -> None:
 
             with c2:
                 st.markdown(f"### {p['code']} / {p['name']}")
-                st.write(p["intro"] or "")
+                render_glossary_text(p["intro"] or "")
 
             with c3:
                 st.write("")

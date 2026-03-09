@@ -122,6 +122,15 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_rel_from ON relations(from_code);
             CREATE INDEX IF NOT EXISTS idx_rel_to ON relations(to_code);
             CREATE INDEX IF NOT EXISTS idx_lp_line ON line_products(line_id);
+
+            -- -------------------------
+            -- 术语表（关键词解释）
+            -- -------------------------
+            CREATE TABLE IF NOT EXISTS glossary (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              term TEXT NOT NULL UNIQUE,
+              definition TEXT NOT NULL
+            );
             """
         )
         c.commit()

@@ -4,6 +4,7 @@ from streamlit_agraph import agraph, Config
 
 from core.scroll import safe_dom_id, scroll_to_anchor, go
 from core.ui_utils import get_clicked_node
+from core.glossary_render import render_glossary_text
 from graph.nodes import img_path_or_none, show_image_with_zoom
 from graph.build_line import build_line_graph
 from repo.lines import list_lines_sorted, get_line
@@ -108,7 +109,8 @@ def render_line_page() -> None:
     st.markdown("#### 产品线关系图（点击节点 => 滚动到卡片）")
 
     config = Config(width="100%", height=520, directed=True, physics=False, hierarchical=False, nodeHighlightBehavior=True)
-    selected = agraph(nodes=nodes, edges=edges, config=config)
+    with st.container(border=True):
+        selected = agraph(nodes=nodes, edges=edges, config=config)
     clicked = get_clicked_node(selected)
 
     # 判断是否有新的节点点击：比较 agraph 原始返回值与上次记录
@@ -151,7 +153,7 @@ def render_line_page() -> None:
                 st.markdown(f"### {p['code']} / {p['name']}")
                 if p["category"]:
                     st.caption(p["category"])
-                st.write(p["intro"] or "")
+                render_glossary_text(p["intro"] or "")
 
             with c3:
                 st.write("")

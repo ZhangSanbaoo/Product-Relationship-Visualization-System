@@ -3,6 +3,7 @@ from streamlit_agraph import agraph, Config
 
 from core.scroll import go
 from core.ui_utils import get_clicked_node
+from core.glossary_render import render_glossary_text
 from graph.nodes import img_path_or_none, show_image_with_zoom
 from graph.build_product_global import build_product_graph_global
 from repo.products import list_products
@@ -59,7 +60,8 @@ def render_product_page() -> None:
         nodeHighlightBehavior=True,
     )
 
-    selected = agraph(nodes=nodes, edges=edges, config=config)
+    with st.container(border=True):
+        selected = agraph(nodes=nodes, edges=edges, config=config)
     clicked = get_clicked_node(selected)
 
     if clicked and clicked != code:
@@ -84,7 +86,7 @@ def render_product_page() -> None:
         if p["category"]:
             st.caption(p["category"])
         st.markdown("### 详细介绍")
-        st.write(p["detail"] or "")
+        render_glossary_text(p["detail"] or "")
 
     with right:
         st.markdown("### 存在该产品的产品线（点击跳回产品线）")
