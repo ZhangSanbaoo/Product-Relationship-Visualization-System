@@ -88,4 +88,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        print(f"\n[启动失败 / Launch failed] {e}")
+        import traceback
+        traceback.print_exc()
+        input("\n按回车退出 / Press Enter to exit...")
+        sys.exit(1)

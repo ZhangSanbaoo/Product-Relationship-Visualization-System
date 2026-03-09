@@ -2,16 +2,41 @@
 from PyInstaller.utils.hooks import collect_all
 from PyInstaller.utils.hooks import copy_metadata
 
-datas = [('app.py', '.'), ('core', 'core'), ('graph', 'graph'), ('repo', 'repo'), ('ui_pages', 'ui_pages'), ('data.sqlite3', '.'), ('img', 'img')]
+datas = [
+    ('app.py', '.'),
+    ('core', 'core'),
+    ('graph', 'graph'),
+    ('repo', 'repo'),
+    ('ui_pages', 'ui_pages'),
+    ('data.sqlite3', '.'),
+    ('img', 'img'),
+]
 binaries = []
 hiddenimports = []
+
 datas += copy_metadata('streamlit')
 datas += copy_metadata('streamlit_agraph')
+
 tmp_ret = collect_all('streamlit')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 tmp_ret = collect_all('streamlit_agraph')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
+# openai SDK (AI chat)
+hiddenimports += ['openai', 'httpx', 'httpx._transports', 'httpx._transports.default']
+
+# llama-cpp-python (local GGUF)
+tmp_ret = collect_all('llama_cpp')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+
+# 排除不需要打包的文件
+exclude_datas = [
+    'api_config.json',
+    'models',
+    '.streamlit',
+    '.claude',
+    'CLAUDE.md',
+]
 
 a = Analysis(
     ['launcher.py'],

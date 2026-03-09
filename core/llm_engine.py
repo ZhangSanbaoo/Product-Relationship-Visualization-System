@@ -12,15 +12,15 @@ from typing import Generator
 
 import streamlit as st
 
-from core.settings import BASE_DIR
+from core.settings import PROJECT_ROOT
 
-MODELS_DIR = BASE_DIR / "models"
+MODELS_DIR = PROJECT_ROOT / "models"
 MODELS_DIR.mkdir(exist_ok=True)
 
 MAX_HISTORY_ROUNDS_API = 10    # 在线 API: 保留最近 10 轮
 MAX_HISTORY_ROUNDS_LOCAL = 3   # 本地 GGUF: 保留最近 3 轮（省上下文空间）
 
-API_CONFIG_PATH = BASE_DIR / "api_config.json"
+API_CONFIG_PATH = PROJECT_ROOT / "api_config.json"
 
 # ── 预设服务商 ────────────────────────────────────────────
 # 格式: (显示名, base_url, 默认模型, 常用模型提示)
