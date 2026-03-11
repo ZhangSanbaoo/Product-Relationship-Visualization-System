@@ -1,7 +1,6 @@
 import sqlite3
 import pandas as pd
 import streamlit as st
-from streamlit_agraph import agraph, Config
 
 from core.settings import IMG_DIR
 from graph.nodes import save_product_image_overwrite
@@ -395,6 +394,7 @@ def _render_line_members(prods, lid):
     with st.expander(":material/preview: 产品线关系图预览", expanded=True):
         _p, nodes_pv, edges_pv = build_line_graph(lid)
         if nodes_pv:
+            from streamlit_agraph import agraph, Config
             config_pv = Config(width="100%", height=260, directed=True, physics=False, hierarchical=False, nodeHighlightBehavior=True)
             agraph(nodes=nodes_pv, edges=edges_pv, config=config_pv)
 

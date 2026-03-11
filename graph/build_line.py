@@ -1,4 +1,3 @@
-from streamlit_agraph import Edge
 
 from core.settings import X_GAP, Y_GAP
 from graph.nodes import node_for_product
@@ -48,6 +47,7 @@ def build_line_graph(line_id: int):
     def _edge_text(row) -> str:
         return (row["edge_label"] or "").strip()
 
+    from streamlit_agraph import Edge
     edges = [
         Edge(
             source=r["from_code"],

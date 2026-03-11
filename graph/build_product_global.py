@@ -1,4 +1,3 @@
-from streamlit_agraph import Edge
 
 from graph.nodes import node_for_product
 from repo.products import get_product
@@ -58,6 +57,7 @@ def build_product_graph_global(product_code: str):
         add_node(r["from_code"], r["a_name"], r["a_img"], 1, r["line_name"])
         add_node(r["to_code"], r["b_name"], r["b_img"], 1, r["line_name"])
 
+    from streamlit_agraph import Edge
     seen = set()
     edges: list[Edge] = []
 

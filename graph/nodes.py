@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 import streamlit as st
-from streamlit_agraph import Node
 
 from core.settings import PROJECT_ROOT, BASE_DIR, IMG_W, GRAPH_THUMB
 
@@ -127,6 +126,7 @@ def node_for_product(
     if fixed:
         kwargs["fixed"] = {"x": True, "y": True}
 
+    from streamlit_agraph import Node
     n = Node(**kwargs)
 
     if level is not None:

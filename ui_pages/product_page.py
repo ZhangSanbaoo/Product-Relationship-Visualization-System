@@ -1,5 +1,4 @@
 import streamlit as st
-from streamlit_agraph import agraph, Config
 
 from core.scroll import go
 from core.ui_utils import get_clicked_node
@@ -49,6 +48,7 @@ def render_product_page() -> None:
         return
 
     st.markdown("#### 上下游/可连接关系图（点击节点 => 跳到该产品详情）")
+    from streamlit_agraph import agraph, Config
     config = Config(
         width="100%",
         height=360,

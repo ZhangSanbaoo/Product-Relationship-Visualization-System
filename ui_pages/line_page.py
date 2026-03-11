@@ -1,6 +1,5 @@
 import streamlit as st
 import streamlit.components.v1 as components
-from streamlit_agraph import agraph, Config
 
 from core.scroll import safe_dom_id, scroll_to_anchor, go
 from core.ui_utils import get_clicked_node
@@ -108,6 +107,7 @@ def render_line_page() -> None:
 
     st.markdown("#### 产品线关系图（点击节点 => 滚动到卡片）")
 
+    from streamlit_agraph import agraph, Config
     config = Config(width="100%", height=520, directed=True, physics=False, hierarchical=False, nodeHighlightBehavior=True)
     with st.container(border=True):
         selected = agraph(nodes=nodes, edges=edges, config=config)
